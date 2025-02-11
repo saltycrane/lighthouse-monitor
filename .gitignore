@@ -1,0 +1,4 @@
+node_modules
+lighthouse-config-*.json
+lighthouse-results.json
+lighthouse-results-*.json

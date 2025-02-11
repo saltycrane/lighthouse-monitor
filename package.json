@@ -1,0 +1,16 @@
+{
+  "scripts": {
+    "lh": "node --loader ts-node/esm --no-warnings=ExperimentalWarning lighthouse-script.ts"
+  },
+  "type": "module",
+  "dependencies": {
+    "lighthouse": "^12.3.0",
+    "puppeteer": "^24.2.0"
+  },
+  "devDependencies": {
+    "@types/puppeteer": "^5.4.7",
+    "prettier": "^3.5.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.3"
+  }
+}
