@@ -1,7 +1,11 @@
-# lighthouse-script
+# lighthouse-monitor
 
-A script to automate Lighthouse performance testing of web pages. Uses Node.js, TypeScript, Puppeteer, and the `lighthouse` npm package. I used this for testing the performance of a page before and after making changes.
+Monitor Lighthouse performance metrics over time. Uses Node.js, TypeScript, Puppeteer, sqlite, and the `lighthouse` npm package for the script. Uses Next.js and React for the dashboard web app. I used "Edit with Copilot" Claude 3.7 to write a lot of the code. Thus, a lot of it is messier than I would normally write.
 
+- run Lighthouse every 15 minutes using cron
+- store metrics in sqlite
+- display graphs of data over time
+- uses Puppeteer to separate cached vs. non-cached behavior
 - measures
   - Overall Lighthouse performance score
   - First Contentful Paint (FCP)
@@ -9,67 +13,39 @@ A script to automate Lighthouse performance testing of web pages. Uses Node.js, 
   - Total Blocking Time (TBT)
   - Cumulative Layout Shift (CLS)
   - Speed Index
-- supports making multiple tests of multiple runs each
-- provides statistics (mean, std dev, min, max)
-- uses Puppeteer to test cached vs. non-cached behavior
-- input configuration is in a JSON file
-- saves results as a JSON file
-- displays a table of results in the console
 
-## Example results (console display)
-
-``` 
-📊 Lighthouse Metrics Google vs. Wikipedia
-
-https://www.google.com/
-  Timestamps: 2025-02-14T22:00:40.235Z - 2025-02-14T22:01:41.221Z
-  Test count: 2 tests x 3 runs/test = 6 total
-┌───────────────────────────┬───────┬────────┬───────┬──────┐
-│ (index)                   │ mean  │ stdDev │ min   │ max  │
-├───────────────────────────┼───────┼────────┼───────┼──────┤
-│ performanceScore          │ 92    │ 2      │ 89    │ 94   │
-│ firstContentfulPaintSec   │ 1.7   │ 0.49   │ 1.2   │ 2.3  │
-│ largestContentfulPaintSec │ 2.2   │ 0.49   │ 1.5   │ 2.8  │
-│ totalBlockingTimeMs       │ 218   │ 3.4    │ 212   │ 222  │
-│ cumulativeLayoutShift     │ 0.018 │ 0.0156 │ 0.007 │ 0.04 │
-│ speedIndexSec             │ 3.1   │ 0.34   │ 2.8   │ 3.6  │
-└───────────────────────────┴───────┴────────┴───────┴──────┘
-
-https://www.wikipedia.org/
-  Timestamps: 2025-02-14T22:01:03.207Z - 2025-02-14T22:01:59.892Z
-  Test count: 2 tests x 3 runs/test = 6 total
-┌───────────────────────────┬──────┬────────┬─────┬─────┐
-│ (index)                   │ mean │ stdDev │ min │ max │
-├───────────────────────────┼──────┼────────┼─────┼─────┤
-│ performanceScore          │ 100  │ 0.4    │ 99  │ 100 │
-│ firstContentfulPaintSec   │ 1.2  │ 0      │ 1.2 │ 1.2 │
-│ largestContentfulPaintSec │ 1.4  │ 0      │ 1.4 │ 1.4 │
-│ totalBlockingTimeMs       │ 19   │ 42.5   │ 0   │ 114 │
-│ cumulativeLayoutShift     │ 0    │ 0      │ 0   │ 0   │
-│ speedIndexSec             │ 1.3  │ 0.17   │ 1.2 │ 1.6 │
-└───────────────────────────┴──────┴────────┴─────┴─────┘
-```
-
-## Example config file
-
-``` json
-{
-  "description": "Google vs. Wikipedia",
-  "outputFilePath": "./lighthouse-results",
-  "runCount": 2,
-  "testCount": 2,
-  "urls": ["https://www.google.com/", "https://www.wikipedia.org/"]
-}
-```
 
 ## Usage
 
 - install Node.js (tested with v22)
+- `cd /my/working/directory`
+- `git clone https://github.com/saltycrane/lighthouse-monitor.git`
+- `cp .env.example .env`
 - `npm install`
-- edit config file at `./lighthouse-config.json` as needed
-- `npm run lh`
-- see results printed in the terminal and saved in a file like `./lighthouse-results.2025-02-14T22:01:59.892Z.json`
 
-## Specifying a different config file on the command line
 
-To use `./my-config-file.json`, pass it on the command line: `npm run lh -- ./my-config-file.json`
+### Run web app
+
+- `npm run dev`
+- go to http://localhost:3000 in the browser
+- add at least 1 host and 1 pathname in the UI
+
+
+### Run script with cron
+
+- `crontab -e`
+- add something similar to:
+  ``` 
+  */15 * * * * PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/opt/node@22/bin /my/working/directory/lighthouse-monitor/node_modules/.bin/tsx /my/working/directory/lighthouse-monitor/lighthouse-script.ts > /my/working/directory/lighthouse-monitor/script-output.log 2>&1
+  ```
+
+
+### To do
+
+- save detailed reports to S3 and allow viewing them
+- add more filtering (e.g. separate cached and uncached when comparing multiple hosts/pages)
+
+
+### Alternatives
+
+- use PageSpeed Insights API instead of running Lighthouse if your website is publicly available. It is free for 25,000 requests per day.

@@ -1,7 +1,0 @@
-{
-  "description": "Google vs. Wikipedia",
-  "outputFilePath": "./lighthouse-results",
-  "testCount": 2,
-  "runCount": 3,
-  "urls": ["https://www.google.com/", "https://www.wikipedia.org/"]
-}
