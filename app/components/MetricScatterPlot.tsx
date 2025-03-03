@@ -71,6 +71,7 @@ const MEAN_KEY_MAP: Record<TMetricKey, TAggregatedStatKey> = {
   total_blocking_time: "mean_tbt",
   cumulative_layout_shift: "mean_cls",
   speed_index: "mean_si",
+  interaction_to_next_paint: "mean_inp",
 };
 
 const STD_DEV_KEY_MAP: Record<TMetricKey, TAggregatedStatKey> = {
@@ -80,6 +81,7 @@ const STD_DEV_KEY_MAP: Record<TMetricKey, TAggregatedStatKey> = {
   total_blocking_time: "std_tbt",
   cumulative_layout_shift: "std_cls",
   speed_index: "std_si",
+  interaction_to_next_paint: "std_inp",
 };
 
 /**
@@ -131,9 +133,9 @@ export function MetricScatterChart({
           datasets: [
             ...datasets.map((metrics, i) => {
               const mean =
-                stats[i][MEAN_KEY_MAP[metricFromProps]].toFixed(digits);
+                stats[i][MEAN_KEY_MAP[metricFromProps]]?.toFixed(digits);
               const stdDev =
-                stats[i][STD_DEV_KEY_MAP[metricFromProps]].toFixed(digits);
+                stats[i][STD_DEV_KEY_MAP[metricFromProps]]?.toFixed(digits);
               return {
                 ...COLORS[i],
                 label: `${legends[i]} ${mean} ± ${stdDev}`,

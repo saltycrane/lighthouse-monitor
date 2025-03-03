@@ -1,0 +1,10 @@
+#!/bin/bash
+
+# Usage
+#   ./bin/prod-dc down
+#   ./bin/prod-dc up --build -d
+#   ./bin/prod-dc logs -f
+
+set -eux
+
+docker-compose -f docker-compose.yml -f docker-compose.prod.override.yml "$@"

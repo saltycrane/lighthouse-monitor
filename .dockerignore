@@ -1,0 +1,9 @@
+node_modules
+.next
+.env
+lighthouse.db
+data
+npm-debug.log
+lighthouse-config*.json
+TODO.org
+script-output.log

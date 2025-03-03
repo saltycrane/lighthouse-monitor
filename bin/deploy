@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# Usage
+#   ./bin/deploy username@server
+
+set -eux
+
+if [ $# -lt 1 ]; then
+  echo "Usage: $0 username@server"
+  echo "Example: $0 ubuntu@ec2-12-34-56-78.compute-1.amazonaws.com"
+  exit 1
+fi
+
+SERVER=$1
+
+rsync -avz \
+  --delete \
+  --exclude='.git' \
+  --exclude='.env' \
+  --exclude='.next' \
+  --exclude='.DS_Store' \
+  --exclude='lighthouse.db' \
+  --exclude='node_modules' \
+  --exclude='npm-debug.log' \
+  --exclude='script-output.log' \
+  ./ "$SERVER:/home/ubuntu/lighthouse-monitor/"
+
+echo "Copied files successfully"

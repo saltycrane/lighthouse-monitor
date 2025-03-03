@@ -1,0 +1,44 @@
+name: limo
+
+services:
+  lighthouse-monitor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - DB_PATH=/app/data/lighthouse.db
+      - LOG_LEVEL=info
+      - USE_PUPPETEER=false
+    networks:
+      - lighthouse-network
+    volumes:
+      - lighthouse-data:/app/data
+      - lighthouse-logs:/var/log/lighthouse
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile-dashboard
+      args:
+        # DB_PATH is an environment variable needed at build time in the Next.js
+        # dashboard. It is consumed in `Dockerfile-dashboard`.
+        - DB_PATH=/app/data/lighthouse.db
+    environment:
+      - LOG_LEVEL=info
+    ports:
+      - "3000:3000"
+    networks:
+      - lighthouse-network
+    volumes:
+      - lighthouse-data:/app/data
+
+volumes:
+  lighthouse-data:
+    # This volume will store the SQLite database
+  lighthouse-logs:
+    # This volume will store the logs from the cron job
+
+networks:
+  lighthouse-network:
+    driver: bridge

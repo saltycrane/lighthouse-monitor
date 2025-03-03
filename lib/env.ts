@@ -1,6 +1,8 @@
 import path from "path";
 import { fileURLToPath } from "url";
 
+import * as log from "./log";
+
 // Get the directory name of the current module
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
@@ -10,7 +12,12 @@ const rootDir = path.resolve(__dirname, "..");
  * If the path is relative, it's resolved from the project root
  */
 export function getDatabasePath(): string {
-  const dbPath = process.env.DB_PATH || "lighthouse.db";
+  const dbPath = process.env.DB_PATH;
+  log.debug("[getDatabasePath]", dbPath);
+
+  if (!dbPath) {
+    throw Error("DB_PATH environment variable is not set");
+  }
 
   // If it's an absolute path, use it as is
   if (path.isAbsolute(dbPath)) {

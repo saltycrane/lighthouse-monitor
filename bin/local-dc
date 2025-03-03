@@ -1,0 +1,10 @@
+#!/bin/bash
+
+# Usage
+#   ./bin/local-dc down
+#   ./bin/local-dc up --build -d
+#   ./bin/local-dc logs -f
+
+set -eux
+
+docker-compose -f docker-compose.yml -f docker-compose.local.override.yml "$@"

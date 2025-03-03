@@ -5,6 +5,8 @@ import HostList from "./components/HostList";
 import AddPathnameForm from "./components/AddPathnameForm";
 import PathnameList from "./components/PathnameList";
 
+export const revalidate = 0;
+
 export default async function DashboardPage() {
   const hosts = await getAllHosts();
   const pathnames = await getAllPathnames();

@@ -9,7 +9,7 @@ import {
 } from "@/lib/db";
 import { TAggregatedStatsRow, TMetricsRow } from "@/lib/types";
 
-export const revalidate = 30;
+export const revalidate = 0;
 
 type TProps = {
   params: Promise<{ host: string }>;

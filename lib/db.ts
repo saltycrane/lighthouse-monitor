@@ -1,6 +1,8 @@
 import sqlite3 from "sqlite3";
 import { open } from "sqlite";
 
+import { getDatabasePath } from "./env";
+import * as log from "./log";
 import {
   TAggregatedStatsRow,
   THostRow,
@@ -8,12 +10,13 @@ import {
   TMetricsRow,
   TPathnameRow,
 } from "./types";
-import { getDatabasePath } from "./env";
 
 /**
  * initializeDatabase
  */
 export async function initializeDatabase() {
+  log.debug("[initializeDatabase] start");
+
   const dbPath = getDatabasePath();
   const db = await open({
     filename: dbPath,
@@ -53,7 +56,10 @@ export async function initializeDatabase() {
       largest_contentful_paint REAL NOT NULL,
       total_blocking_time REAL NOT NULL,
       cumulative_layout_shift REAL NOT NULL,
-      speed_index REAL NOT NULL
+      speed_index REAL NOT NULL,
+      interaction_to_next_paint REAL NOT NULL,
+      browser_env TEXT,
+      html_report_s3_key TEXT
     )
   `);
 
@@ -88,6 +94,7 @@ export async function updateHostIsActive(id: number, isActive: boolean) {
  * getAllHosts
  */
 export async function getAllHosts(): Promise<THostRow[]> {
+  log.debug("[getAllHosts] start");
   const db = await initializeDatabase();
   const rows = await db.all(
     `SELECT id, host, is_active FROM hosts ORDER BY host`,
@@ -123,6 +130,7 @@ export async function updatePathnameIsActive(id: number, isActive: boolean) {
  * getAllPathnames
  */
 export async function getAllPathnames(): Promise<TPathnameRow[]> {
+  log.debug("[getAllPathnames] start");
   const db = await initializeDatabase();
   const rows = await db.all(
     `SELECT id, is_active, pathname FROM pathnames ORDER BY pathname`,
@@ -134,25 +142,30 @@ export async function getAllPathnames(): Promise<TPathnameRow[]> {
  * saveMetrics
  */
 export async function createMetrics(metrics: TLighthouseMetrics) {
+  log.debug("[createMetrics] start");
   const db = await initializeDatabase();
   await db.run(
     `
       INSERT INTO metrics (
         host, pathname, is_cached, performance_score, first_contentful_paint,
         largest_contentful_paint, total_blocking_time,
-        cumulative_layout_shift, speed_index
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        cumulative_layout_shift, speed_index, interaction_to_next_paint, 
+        browser_env, html_report_s3_key
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
     [
       metrics.host,
       metrics.pathname,
-      metrics.runNumber > 1,
+      metrics.isCached,
       metrics.performanceScore,
       metrics.firstContentfulPaintSec,
       metrics.largestContentfulPaintSec,
       metrics.totalBlockingTimeMs,
       metrics.cumulativeLayoutShift,
       metrics.speedIndexSec,
+      metrics.interactionToNextPaintMs,
+      metrics.browserEnv,
+      metrics.htmlReportS3Key,
     ],
   );
 }
@@ -178,6 +191,9 @@ export async function getLatestMetrics(
       total_blocking_time,
       cumulative_layout_shift,
       speed_index,
+      interaction_to_next_paint,
+      browser_env,
+      html_report_s3_key,
       timestamp
     FROM metrics
     ${whereClause}
@@ -219,6 +235,8 @@ export async function getMovingAverages(
       AVG(n2.total_blocking_time) as total_blocking_time,
       AVG(n2.cumulative_layout_shift) as cumulative_layout_shift,
       AVG(n2.speed_index) as speed_index,
+      AVG(n2.interaction_to_next_paint) as interaction_to_next_paint,
+      n2.browser_env,
       n1.timestamp
     FROM numbered_rows n1
     JOIN numbered_rows n2 ON n2.row_num BETWEEN 
@@ -255,12 +273,14 @@ export async function getAggregatedStats(
       avg(total_blocking_time) as mean_tbt,
       avg(cumulative_layout_shift) as mean_cls,
       avg(speed_index) as mean_si,
+      avg(interaction_to_next_paint) as mean_inp,
       SQRT(AVG(performance_score * performance_score) - AVG(performance_score) * AVG(performance_score)) as std_performance,
       SQRT(AVG(first_contentful_paint * first_contentful_paint) - AVG(first_contentful_paint) * AVG(first_contentful_paint)) as std_fcp,
       SQRT(AVG(largest_contentful_paint * largest_contentful_paint) - AVG(largest_contentful_paint) * AVG(largest_contentful_paint)) as std_lcp,
       SQRT(AVG(total_blocking_time * total_blocking_time) - AVG(total_blocking_time) * AVG(total_blocking_time)) as std_tbt,
       SQRT(AVG(cumulative_layout_shift * cumulative_layout_shift) - AVG(cumulative_layout_shift) * AVG(cumulative_layout_shift)) as std_cls,
-      SQRT(AVG(speed_index * speed_index) - AVG(speed_index) * AVG(speed_index)) as std_si
+      SQRT(AVG(speed_index * speed_index) - AVG(speed_index) * AVG(speed_index)) as std_si,
+      SQRT(AVG(interaction_to_next_paint * interaction_to_next_paint) - AVG(interaction_to_next_paint) * AVG(interaction_to_next_paint)) as std_inp
     FROM metrics
     ${whereClause}
   `,

@@ -1,0 +1,14 @@
+#!/bin/bash
+
+set -e
+
+echo "----------------------------------------"
+echo "Starting lighthouse run: $(date)"
+echo "----------------------------------------"
+
+# Run the lighthouse script using tsx
+NODE_ENV=production /app/node_modules/.bin/tsx lighthouse-script.ts 2>&1 | tee /var/log/lighthouse-$(date +\%Y\%m\%d).log
+
+echo "----------------------------------------"
+echo "Completed lighthouse run: $(date)"
+echo "----------------------------------------"

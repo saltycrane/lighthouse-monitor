@@ -30,3 +30,4 @@ lighthouse.db
 lighthouse-config*.json
 TODO.org
 script-output.log
+docker-compose*.override.yml

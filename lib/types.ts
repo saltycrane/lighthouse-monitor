@@ -8,18 +8,22 @@ export type TAggregatedStatsRow = {
   mean_tbt: number;
   mean_cls: number;
   mean_si: number;
+  mean_inp: number;
   std_performance: number;
   std_fcp: number;
   std_lcp: number;
   std_tbt: number;
   std_cls: number;
   std_si: number;
+  std_inp: number;
 };
 
 export type TAggregatedStatKey = Exclude<
   keyof TAggregatedStatsRow,
   "host" | "pathname" | "is_cached"
 >;
+
+export type TBrowserEnv = "puppeteer" | "chrome-launcher";
 
 export type THostRow = {
   id: number;
@@ -30,18 +34,26 @@ export type THostRow = {
 export type TLighthouseMetrics = {
   host: string;
   pathname: string;
-  runNumber: number;
+  isCached: boolean;
+  browserEnv: string | null;
   performanceScore: number | null;
   firstContentfulPaintSec: number | null;
   largestContentfulPaintSec: number | null;
   totalBlockingTimeMs: number | null;
   cumulativeLayoutShift: number | null;
   speedIndexSec: number | null;
+  interactionToNextPaintMs: number | null;
+  htmlReportS3Key: string | null;
 };
 
 export type TMetricKey = Exclude<
   keyof TMetricsRow,
-  "host" | "pathname" | "is_cached" | "timestamp"
+  | "host"
+  | "pathname"
+  | "is_cached"
+  | "timestamp"
+  | "browser_env"
+  | "html_report_s3_key"
 >;
 
 export type TMetricsRow = {
@@ -54,7 +66,10 @@ export type TMetricsRow = {
   total_blocking_time: number;
   cumulative_layout_shift: number;
   speed_index: number;
+  interaction_to_next_paint: number;
+  browser_env: string | null;
   timestamp: string;
+  html_report_s3_key: string | null;
 };
 
 export type TPathnameRow = {
