@@ -100,7 +100,7 @@ async function runTestsForSingleUrl(host: string, pathname: string) {
   const chrome = await chromeLauncher.launch(CHROME_LAUNCHER_OPTIONS);
   await sleep(DELAY_BETWEEN_TESTS_MS);
 
-  for (const runNumber of range(1, 4)) {
+  for (const runNumber of range(1, 3)) {
     try {
       await runLighthouse(
         host,
@@ -137,7 +137,7 @@ async function runTestsForSingleUrlUsingPuppeteer(
   await sleep(DELAY_BETWEEN_TESTS_MS);
   const port = parseInt(new URL(browser.wsEndpoint()).port, 10);
 
-  for (const runNumber of range(1, 4)) {
+  for (const runNumber of range(1, 3)) {
     try {
       // TODO: `.race` and `timeout` stuff not tested
       const result = await Promise.race([
@@ -170,8 +170,8 @@ async function runLighthouse(
   log.info(`Run ${runNumber}: running lighthouse...`);
 
   const url = `https://${host}${pathname}`;
-  // Experiment: 1st 2 runs are "uncached", 3rd run is "cached"
-  const isCached = runNumber > 2;
+  // 1st run is "uncached"; 2nd run is "cached"
+  const isCached = runNumber > 1;
   const lighthouseConfig = {
     ...LIGHTHOUSE_CONFIG,
     settings: {
@@ -235,7 +235,11 @@ async function runLighthouse(
   let s3Key: string | null = null;
   try {
     s3Key = `report-${Date.now()}.html`;
-    const appendedReport = addConfigToEndOfReport(result.report[1], runNumber);
+    const appendedReport = addConfigToEndOfReport(
+      result.report[1],
+      lighthouseConfig,
+      runNumber,
+    );
     await uploadHtmlReportToS3(s3Key, appendedReport);
   } catch (error) {
     log.error(" ❌ S3 upload error:", error);
@@ -294,7 +298,11 @@ async function uploadHtmlReportToS3(s3Key: string, htmlReport: string) {
 /**
  * addConfigToEndOfReport
  */
-function addConfigToEndOfReport(htmlReport: string, runNumber: number) {
+function addConfigToEndOfReport(
+  htmlReport: string,
+  lighthouseConfig: LH.Config,
+  runNumber: number,
+) {
   const $ = cheerio.load(htmlReport);
 
   const launcherOpts =
@@ -304,7 +312,7 @@ function addConfigToEndOfReport(htmlReport: string, runNumber: number) {
 
   $("body").append(`<pre>Run number: ${runNumber}</pre>`);
   $("body").append(`<pre>${JSON.stringify(launcherOpts, null, 2)}</pre>`);
-  $("body").append(`<pre>${JSON.stringify(LIGHTHOUSE_CONFIG, null, 2)}</pre>`);
+  $("body").append(`<pre>${JSON.stringify(lighthouseConfig, null, 2)}</pre>`);
 
   return $.html();
 }

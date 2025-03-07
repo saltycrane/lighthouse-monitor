@@ -19,6 +19,7 @@ export default function HostList({ hosts }: TProps) {
     text: string;
     type: "error" | "success";
   } | null>(null);
+  const activeHosts = hosts.filter((host) => host.is_active);
   const [pendingId, setPendingId] = useState<number | null>(null);
   const [pendingToggleId, setPendingToggleId] = useState<number | null>(null);
 
@@ -79,7 +80,7 @@ export default function HostList({ hosts }: TProps) {
     <div className="space-y-4">
       {/* Header row with heading and feedback message */}
       <div className="flex justify-between items-center mb-4">
-        <Heading level={2}>Hosts</Heading>
+        <Heading level={2}>Hosts to monitor ({activeHosts.length})</Heading>
 
         {/* Feedback message aligned to the right */}
         <div className="h-6 flex items-center">

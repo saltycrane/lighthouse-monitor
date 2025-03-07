@@ -1,31 +1,43 @@
-import { getAllHosts, getAllPathnames } from "../lib/db";
-import { Heading } from "./components/ui/heading";
-import AddHostForm from "./components/AddHostForm";
-import HostList from "./components/HostList";
-import AddPathnameForm from "./components/AddPathnameForm";
-import PathnameList from "./components/PathnameList";
+import { AllPlots } from "@/app/components/AllPlots";
+import { MetricsTable } from "@/app/components/MetricsTable";
+import { Filters } from "@/components/Filters";
+import { TSearchParams } from "@/lib/types";
+import { getAndTransformAllData } from "./getAndTransformAllData";
 
 export const revalidate = 0;
 
-export default async function DashboardPage() {
-  const hosts = await getAllHosts();
-  const pathnames = await getAllPathnames();
+type TProps = {
+  searchParams: TSearchParams;
+};
+
+export default async function IndexPage({ searchParams }: TProps) {
+  const {
+    combineCached,
+    hideCached,
+    hideUncached,
+    hostRows,
+    pathnameRows,
+    selectedHosts,
+    selectedPathnames,
+    timespan,
+    plotData,
+    tableData,
+  } = await getAndTransformAllData({ searchParams });
 
   return (
     <>
-      <Heading level={1} className="mb-8">
-        Lighthouse Monitor Dashboard
-      </Heading>
-
-      <div className="grid gap-8 md:grid-cols-2 mb-12">
-        <AddHostForm />
-        <HostList hosts={hosts} />
-      </div>
-
-      <div className="grid gap-8 md:grid-cols-2">
-        <AddPathnameForm />
-        <PathnameList pathnames={pathnames} />
-      </div>
+      <Filters
+        combineCached={combineCached}
+        hideCached={hideCached}
+        hideUncached={hideUncached}
+        hosts={hostRows}
+        pathnames={pathnameRows}
+        selectedHosts={selectedHosts}
+        selectedPathnames={selectedPathnames}
+        selectedTimespan={timespan}
+      />
+      <AllPlots data={plotData} />
+      <MetricsTable metricsData={tableData} />
     </>
   );
 }

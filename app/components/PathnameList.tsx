@@ -15,6 +15,7 @@ type TProps = {
 };
 
 export default function PathnameList({ pathnames }: TProps) {
+  const activePathnames = pathnames.filter((pathname) => pathname.is_active);
   const [message, setMessage] = useState<{
     text: string;
     type: "error" | "success";
@@ -84,7 +85,9 @@ export default function PathnameList({ pathnames }: TProps) {
     <div className="space-y-4">
       {/* Header row with heading and feedback message */}
       <div className="flex justify-between items-center mb-4">
-        <Heading level={2}>Pathnames</Heading>
+        <Heading level={2}>
+          Pathnames to monitor ({activePathnames.length})
+        </Heading>
 
         {/* Feedback message aligned to the right */}
         <div className="h-6 flex items-center">

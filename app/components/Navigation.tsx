@@ -1,4 +1,4 @@
-import { TowerControl } from "lucide-react";
+import { Cog, TowerControl } from "lucide-react";
 import Link from "next/link";
 
 import { getAllHosts, getAllPathnames } from "@/lib/db";
@@ -24,7 +24,7 @@ export async function Navigation() {
             className="ml-4 mr-6 flex items-center space-x-2 font-bold text-primary"
           >
             <TowerControl className="h-5 w-5" />
-            <span>Lighthouse Metrics</span>
+            <span>Lighthouse Monitor</span>
           </Link>
         </NavigationMenuItem>
         <NavigationMenuItem>
@@ -66,6 +66,12 @@ export async function Navigation() {
               ))}
             </ul>
           </NavigationMenuContent>
+        </NavigationMenuItem>
+        <NavigationMenuItem>
+          <Link href="/configuration" className="flex items-center ml-3">
+            <Cog className="h-5 w-5 mr-2" />
+            <span>Configuration</span>
+          </Link>
         </NavigationMenuItem>
       </NavigationMenuList>
     </NavigationMenu>

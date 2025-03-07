@@ -13,16 +13,18 @@ import {
   ChartOptions,
 } from "chart.js";
 import "chartjs-adapter-date-fns";
+import { orderBy } from "lodash";
 import { Scatter } from "react-chartjs-2";
 
 import { Card } from "@/components/ui/card";
 import { formatDateTime, utcToLocal } from "@/lib/dates";
 import {
   TAggregatedStatKey,
-  TAggregatedStatsRow,
+  TCacheStatus,
   TMetricKey,
-  TMetricsRow,
+  TPlotData,
 } from "@/lib/types";
+import { addAlphaToRgb, darkenRgbColor } from "@/lib/style";
 
 /**
  * Register
@@ -42,26 +44,11 @@ ChartJS.register(
  * Constants
  */
 const COLORS = [
-  {
-    backgroundColor: "rgb(255, 159, 64, 0.8)",
-    borderColor: "rgb(255, 159, 64)",
-  },
-  {
-    backgroundColor: "rgba(53, 162, 235, 0.8)",
-    borderColor: "rgb(53, 162, 235)",
-  },
-  {
-    backgroundColor: "rgba(255, 99, 132, 0.8)",
-    borderColor: "rgb(255, 99, 132)",
-  },
-  {
-    backgroundColor: "rgb(75, 192, 192, 0.8)",
-    borderColor: "rgb(75, 192, 192)",
-  },
-  {
-    backgroundColor: "rgb(153, 102, 255, 0.8)",
-    borderColor: "rgb(153, 102, 255)",
-  },
+  "rgb(53, 162, 235)",
+  "rgb(255, 159, 64)",
+  "rgb(75, 192, 192)",
+  "rgb(255, 99, 132)",
+  "rgb(153, 102, 255)",
 ];
 
 const MEAN_KEY_MAP: Record<TMetricKey, TAggregatedStatKey> = {
@@ -88,75 +75,102 @@ const STD_DEV_KEY_MAP: Record<TMetricKey, TAggregatedStatKey> = {
  * MetricsScatterChart
  */
 type TProps = {
-  datasets: Array<Array<TMetricsRow>>;
+  data: TPlotData;
   digits?: number;
-  legends: string[];
-  max?: number | "auto";
   metric: TMetricKey;
-  min?: number;
-  movingAverages: Array<Array<TMetricsRow>>;
-  stats: TAggregatedStatsRow[];
   title: string;
 };
 
 export function MetricScatterChart({
-  datasets,
+  data,
   digits = 1,
-  legends,
-  max: maxFromProps = "auto",
   metric: metricFromProps,
-  min,
-  movingAverages,
-  stats,
   title,
 }: TProps) {
-  let max: number;
-  if (maxFromProps === "auto") {
-    max = datasets.reduce((memo, metrics) => {
-      const maxForDataset = Math.max(...metrics.map((m) => m[metricFromProps]));
-      return Math.max(memo, maxForDataset);
-    }, 0);
-  } else {
-    max = maxFromProps;
-  }
+  const hosts = orderBy(Object.keys(data));
 
   return (
-    <Card className="h-[600px] p-4">
+    <Card className="h-[800px] p-4">
       <Scatter
-        options={createOptions({
-          max,
-          min,
-          title,
-          yAxisPadding: maxFromProps === "auto" ? 0.1 : 0,
-        })}
+        options={createOptions({ title })}
         data={{
           datasets: [
-            ...datasets.map((metrics, i) => {
-              const mean =
-                stats[i][MEAN_KEY_MAP[metricFromProps]]?.toFixed(digits);
-              const stdDev =
-                stats[i][STD_DEV_KEY_MAP[metricFromProps]]?.toFixed(digits);
-              return {
-                ...COLORS[i],
-                label: `${legends[i]} ${mean} ± ${stdDev}`,
-                data: metrics.map((m) => ({
-                  x: utcToLocal(m.timestamp),
-                  y: m[metricFromProps],
-                  metrics: m,
-                })),
-              };
+            ...hosts.flatMap((host, i) => {
+              const dataByPathname = data[host];
+              const pathnames = orderBy(Object.keys(dataByPathname));
+
+              return pathnames.flatMap((pathname, j) => {
+                const index = (i + 1) * (j + 1) - 1;
+                const dataByCacheStatus = dataByPathname[pathname];
+                const cacheStatuses = orderBy(Object.keys(dataByCacheStatus));
+
+                return cacheStatuses.flatMap((cacheStatus: TCacheStatus) => {
+                  const { averages, metrics, stats } =
+                    dataByCacheStatus[cacheStatus];
+                  const mean =
+                    stats[MEAN_KEY_MAP[metricFromProps]]?.toFixed(digits);
+                  const stdDev =
+                    stats[STD_DEV_KEY_MAP[metricFromProps]]?.toFixed(digits);
+                  const legend = [
+                    host,
+                    pathname,
+                    cacheStatus !== "combined" && `(${cacheStatus})`,
+                    `${mean} ± ${stdDev}`,
+                  ]
+                    .filter(Boolean)
+                    .filter((part) => part !== "all")
+                    .join(" ");
+                  const colorSettings = getColorSettings(index, cacheStatus);
+
+                  return [
+                    // Individual data points
+                    {
+                      ...colorSettings,
+                      label: legend,
+                      data: metrics.map((m) => {
+                        const x = utcToLocal(m.timestamp);
+                        const y = m[metricFromProps];
+                        const hostLabel =
+                          hosts.length === 1 && hosts[0] !== "all"
+                            ? null
+                            : `Host: ${m.host}`;
+                        const pathnameLabel =
+                          pathnames.length === 1 && pathnames[0] !== "all"
+                            ? null
+                            : `Page: ${m.pathname}`;
+
+                        const tooltipTitle = `(${formatDateTime(x)}, ${y.toFixed(digits)})`;
+                        const tooltipLabel = [
+                          hostLabel,
+                          pathnameLabel,
+                          `Cached: ${m.is_cached ? "Yes" : "No"}`,
+                          `Performance: ${m.performance_score.toFixed(0)}`,
+                          `FCP: ${m.first_contentful_paint.toFixed(1)}s`,
+                          `LCP: ${m.largest_contentful_paint.toFixed(1)}s`,
+                          `TBT: ${m.total_blocking_time.toFixed(0)}ms`,
+                          `CLS: ${m.cumulative_layout_shift.toFixed(3)}`,
+                          `Speed Index: ${m.speed_index.toFixed(1)}s`,
+                        ].filter(Boolean);
+
+                        return { x, y, tooltipTitle, tooltipLabel };
+                      }),
+                    },
+                    // Moving average lines
+                    {
+                      ...colorSettings,
+                      label: null, // hide moving average in legend
+                      data: averages.map((m) => ({
+                        x: utcToLocal(m.timestamp),
+                        y: m[metricFromProps],
+                      })),
+                      showLine: true,
+                      pointRadius: 0,
+                      borderWidth: 2,
+                    },
+                  ];
+                });
+              });
             }),
-            ...movingAverages.map((metrics, i) => ({
-              ...COLORS[i],
-              label: null, // hide moving average in legend
-              data: metrics.map((m) => ({
-                x: utcToLocal(m.timestamp),
-                y: m[metricFromProps],
-              })),
-              showLine: true,
-              pointRadius: 0,
-              borderWidth: 2,
-            })),
           ],
         }}
       />
@@ -165,20 +179,27 @@ export function MetricScatterChart({
 }
 
 /**
+ * getColorSettings
+ */
+function getColorSettings(datasetIndex: number, cacheStatus: TCacheStatus) {
+  const color = COLORS[datasetIndex % COLORS.length];
+  const borderColor =
+    cacheStatus === "cached" ? darkenRgbColor(color, 40) : color;
+  return {
+    backgroundColor: addAlphaToRgb(borderColor, 0.8),
+    borderColor,
+  };
+}
+
+/**
  * createOptions
  */
 type TCreateOptionsArg = {
-  max: number;
-  min?: number;
   title: string;
-  yAxisPadding?: number;
 };
 
 const createOptions = ({
-  max,
-  min = 0,
   title,
-  yAxisPadding = 0.1,
 }: TCreateOptionsArg): ChartOptions<"scatter"> => ({
   responsive: true,
   maintainAspectRatio: false,
@@ -201,8 +222,7 @@ const createOptions = ({
     },
     y: {
       beginAtZero: true,
-      min,
-      max: max * (1 + yAxisPadding),
+      min: 0,
       title: {
         display: true,
         text: title,
@@ -212,7 +232,7 @@ const createOptions = ({
   plugins: {
     title: {
       display: true,
-      text: `${title} (lines show 4h moving average)`,
+      text: title,
     },
     legend: {
       position: "top",
@@ -222,20 +242,8 @@ const createOptions = ({
     },
     tooltip: {
       callbacks: {
-        title: (context) => formatDateTime((context[0].raw as any).x),
-        label: (context) => {
-          const point = context.raw as any;
-          return [
-            `${title}: ${point.y.toFixed(2)}`,
-            `Performance: ${point.metrics.performance_score.toFixed(0)}`,
-            `FCP: ${point.metrics.first_contentful_paint.toFixed(2)}s`,
-            `LCP: ${point.metrics.largest_contentful_paint.toFixed(2)}s`,
-            `TBT: ${point.metrics.total_blocking_time.toFixed(0)}ms`,
-            `CLS: ${point.metrics.cumulative_layout_shift.toFixed(3)}`,
-            `Speed Index: ${point.metrics.speed_index.toFixed(2)}s`,
-            `Cached: ${point.metrics.is_cached ? "Yes" : "No"}`,
-          ];
-        },
+        title: (context) => (context[0].raw as any).tooltipTitle,
+        label: (context) => (context.raw as any).tooltipLabel,
       },
     },
   },

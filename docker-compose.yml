@@ -9,6 +9,7 @@ services:
     environment:
       - DB_PATH=/app/data/lighthouse.db
       - LOG_LEVEL=info
+      - S3_BUCKET_NAME=your-s3-bucket
       - USE_PUPPETEER=false
     networks:
       - lighthouse-network
@@ -26,6 +27,7 @@ services:
         - DB_PATH=/app/data/lighthouse.db
     environment:
       - LOG_LEVEL=info
+      - S3_BUCKET_NAME=your-s3-bucket
     ports:
       - "3000:3000"
     networks:

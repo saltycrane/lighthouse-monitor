@@ -1,14 +1,13 @@
 # lighthouse-monitor
 
-Monitor Lighthouse performance metrics over time. Uses Node.js, TypeScript, Puppeteer, sqlite, and the `lighthouse` npm package for the script. Uses Next.js and React for the dashboard web app. I used "Edit with Copilot" Claude 3.7 to write a lot of the code. Thus, a lot of it is messier than I would normally write.
+Monitor Lighthouse performance metrics over time. Uses Node.js, TypeScript, Puppeteer, sqlite, and the `lighthouse` npm package for the script. Uses Next.js App Router and React Server Components for the dashboard web app. Credit and blame to "Edit with Copilot" + Claude 3.7 for significant portions of code.
 
-- run Lighthouse repeatedly using either Docker Compose's `restart` or cron if not using Docker
+- run Lighthouse repeatedly using Docker Compose's `restart` (or cron if not using Docker)
 - store metrics in sqlite
 - display graphs of data over time
-- separates cached vs. non-cached behavior
-- option to use `puppeteer` or `chrome-launcher`
-- saves HTML reports to S3
-- measures
+- separate cached vs. non-cached behavior
+- save HTML reports to S3
+- measure
   - Overall Lighthouse performance score
   - First Contentful Paint (FCP)
   - Largest Contentful Paint (LCP)
@@ -23,11 +22,14 @@ Monitor Lighthouse performance metrics over time. Uses Node.js, TypeScript, Pupp
 - `cd /my/working/directory`
 - `git clone https://github.com/saltycrane/lighthouse-monitor.git`
 - `cp .env.example .env`
+- edit environment variables
 - `npm install`
 - `npm run lh`
 
 
 ## Usage (run continuously WITH Docker)
+
+Set environment variables in `docker-compose.yml` and/or `.env` files.
 
 ### Start
 
@@ -88,6 +90,7 @@ services:
 - `cd /my/working/directory`
 - `git clone https://github.com/saltycrane/lighthouse-monitor.git`
 - `cp .env.example .env`
+- edit environment variables
 - `npm install`
 
 
@@ -105,12 +108,6 @@ services:
   ``` 
   */15 * * * * PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/opt/node@22/bin /my/working/directory/lighthouse-monitor/node_modules/.bin/tsx /my/working/directory/lighthouse-monitor/lighthouse-script.ts > /my/working/directory/lighthouse-monitor/script-output.log 2>&1
   ```
-
-
-## To do
-
-- save detailed reports to S3 and allow viewing them
-- add more filtering (e.g. separate cached and uncached when comparing multiple hosts/pages)
 
 
 ## Alternatives

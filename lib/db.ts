@@ -5,6 +5,7 @@ import { getDatabasePath } from "./env";
 import * as log from "./log";
 import {
   TAggregatedStatsRow,
+  TFilterParams,
   THostRow,
   TLighthouseMetrics,
   TMetricsRow,
@@ -16,6 +17,7 @@ import {
  */
 export async function initializeDatabase() {
   log.debug("[initializeDatabase] start");
+  const start = performance.now();
 
   const dbPath = getDatabasePath();
   const db = await open({
@@ -62,6 +64,16 @@ export async function initializeDatabase() {
       html_report_s3_key TEXT
     )
   `);
+
+  // Create indexes for metrics table for query optimization
+  await db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_metrics_timestamp ON metrics(timestamp);
+    CREATE INDEX IF NOT EXISTS idx_metrics_host_pathname_cached ON metrics(host, pathname, is_cached);
+    CREATE INDEX IF NOT EXISTS idx_metrics_filters_timestamp ON metrics(host, pathname, is_cached, timestamp);
+  `);
+
+  const end = performance.now();
+  log.info(`[initializeDatabase] done in ${(end - start).toFixed(0)} ms`);
 
   return db;
 }
@@ -176,6 +188,8 @@ export async function createMetrics(metrics: TLighthouseMetrics) {
 export async function getLatestMetrics(
   filters: TFilterParams = {},
 ): Promise<TMetricsRow[]> {
+  const start = performance.now();
+
   const db = await initializeDatabase();
   const [whereClause, params] = _getWhereClause(filters);
 
@@ -203,6 +217,9 @@ export async function getLatestMetrics(
     params,
   );
 
+  const end = performance.now();
+  log.info(`[getLatestMetrics] done in ${(end - start).toFixed(0)} ms`);
+
   return metrics;
 }
 
@@ -213,6 +230,8 @@ export async function getMovingAverages(
   filters: TFilterParams = {},
   windowHours = 4,
 ): Promise<TMetricsRow[]> {
+  const start = performance.now();
+
   const db = await initializeDatabase();
   const [whereClause, params] = _getWhereClause(filters);
 
@@ -221,9 +240,10 @@ export async function getMovingAverages(
     WITH numbered_rows AS (
       SELECT
         *,
-        ROW_NUMBER() OVER (ORDER BY timestamp) as row_num
+        ROW_NUMBER() OVER (ORDER BY timestamp DESC) as row_num
       FROM metrics
       ${whereClause}
+      LIMIT 2000
     )
     SELECT
       n1.host,
@@ -244,10 +264,13 @@ export async function getMovingAverages(
       AND 
       (n1.row_num + (SELECT COUNT(*) FROM numbered_rows) * ${windowHours} / 24 / 2)
     GROUP BY n1.timestamp
-    ORDER BY n1.timestamp
+    ORDER BY n1.timestamp DESC
   `,
     params,
   );
+
+  const end = performance.now();
+  log.info(`[getMovingAverages] done in ${(end - start).toFixed(0)} ms`);
 
   return averages;
 }
@@ -258,6 +281,8 @@ export async function getMovingAverages(
 export async function getAggregatedStats(
   filters: TFilterParams = {},
 ): Promise<TAggregatedStatsRow> {
+  const start = performance.now();
+
   const db = await initializeDatabase();
   const [whereClause, params] = _getWhereClause(filters);
 
@@ -287,19 +312,15 @@ export async function getAggregatedStats(
     params,
   );
 
+  const end = performance.now();
+  log.info(`[getAggregatedStats] done in ${(end - start).toFixed(0)} ms`);
+
   return stats;
 }
 
 /**
  * _getWhereClause
  */
-type TFilterParams = {
-  host?: string;
-  isCached?: boolean;
-  pathname?: string;
-  timespanHours?: number;
-};
-
 function _getWhereClause({
   host,
   isCached = null,

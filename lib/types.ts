@@ -25,6 +25,15 @@ export type TAggregatedStatKey = Exclude<
 
 export type TBrowserEnv = "puppeteer" | "chrome-launcher";
 
+export type TCacheStatus = "combined" | "cached" | "uncached";
+
+export type TFilterParams = {
+  host?: string;
+  isCached?: boolean;
+  pathname?: string;
+  timespanHours?: number;
+};
+
 export type THostRow = {
   id: number;
   is_active: boolean;
@@ -77,3 +86,26 @@ export type TPathnameRow = {
   is_active: boolean;
   pathname: string;
 };
+
+export type TPlotData = {
+  [host: string | null]: {
+    [pathname: string | null]: {
+      [K in TCacheStatus]?: {
+        averages: TMetricsRow[];
+        metrics: TMetricsRow[];
+        stats: TAggregatedStatsRow;
+      };
+    };
+  };
+};
+
+export type TRouteParams = Promise<{ host: string } | { pathname: string }>;
+
+export type TSearchParams = Promise<{
+  combineCached?: string;
+  hideCached?: string;
+  hideUncached?: string;
+  hosts?: string;
+  pathnames?: string;
+  timespan?: string;
+}>;

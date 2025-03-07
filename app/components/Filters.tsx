@@ -12,8 +12,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/style";
 import { THostRow, TPathnameRow } from "@/lib/types";
+import { Checkbox } from "@/app/components/ui/checkbox";
 
 const TIMESPAN_OPTIONS = [
   { value: "24", label: "Last 24 hours" },
@@ -27,6 +29,9 @@ type TProps = {
   selectedHosts?: string[];
   selectedPathnames?: string[];
   selectedTimespan?: string;
+  hideCached: boolean;
+  hideUncached: boolean;
+  combineCached: boolean;
 };
 
 export function Filters({
@@ -35,9 +40,15 @@ export function Filters({
   selectedHosts,
   selectedPathnames,
   selectedTimespan = "24",
+  hideCached,
+  hideUncached,
+  combineCached,
 }: TProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  selectedHosts = selectedHosts?.filter(Boolean);
+  selectedPathnames = selectedPathnames?.filter(Boolean);
+  const bothUnchecked = hideCached && hideUncached;
 
   const toggleHost = (host: string) => {
     const params = new URLSearchParams(searchParams);
@@ -73,8 +84,45 @@ export function Filters({
     router.push(`?${params.toString()}`);
   };
 
+  const handleCombineCachedToggle = (checked: boolean) => {
+    const params = new URLSearchParams(searchParams);
+    if (checked) {
+      params.set("combineCached", "true");
+      params.delete("hideCached");
+      params.delete("hideUncached");
+    } else {
+      params.delete("combineCached");
+    }
+    router.replace(`?${params.toString()}`);
+  };
+
+  const handleShowCachedToggle = (checked: boolean) => {
+    const params = new URLSearchParams(searchParams);
+    if (checked) {
+      params.delete("hideCached");
+    } else {
+      params.set("hideCached", "true");
+      params.delete("combineCached");
+    }
+    router.replace(`?${params.toString()}`);
+  };
+
+  const handleShowUncachedToggle = (checked: boolean) => {
+    const params = new URLSearchParams(searchParams);
+    if (checked) {
+      params.delete("hideUncached");
+    } else {
+      params.set("hideUncached", "true");
+      params.delete("combineCached");
+    }
+    router.replace(`?${params.toString()}`);
+  };
+
   const clearAll = () => {
     const params = new URLSearchParams(searchParams);
+    params.delete("combineCached");
+    params.delete("hideCached");
+    params.delete("hideUncached");
     params.delete("hosts");
     params.delete("pathnames");
     router.push(`?${params.toString()}`);
@@ -106,7 +154,73 @@ export function Filters({
         </div>
       </CardHeader>
       <CardContent>
-        <div className="flex flex-col md:flex-row md:gap-8">
+        <div className="flex flex-col md:flex-row md:gap-8 mb-4">
+          <div className="w-full md:w-48">
+            <label className="text-sm font-medium mb-2 block">Timespan</label>
+            <Select
+              value={selectedTimespan}
+              onValueChange={handleTimespanChange}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select timespan" />
+              </SelectTrigger>
+              <SelectContent>
+                {TIMESPAN_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="w-full md:w-80 mb-4 md:mb-0">
+            <label className="text-sm font-medium mb-2 block">
+              Cached/uncached display
+            </label>
+            <div className="flex items-center gap-2">
+              <Switch
+                id="combine-switch"
+                checked={combineCached}
+                onCheckedChange={handleCombineCachedToggle}
+              />
+              <label
+                className="text-sm cursor-pointer mr-4"
+                htmlFor="combine-switch"
+              >
+                Show combined
+              </label>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="cached-checkbox"
+                  checked={!hideCached}
+                  onCheckedChange={handleShowCachedToggle}
+                  className={cn(bothUnchecked && "border-destructive")}
+                />
+                <label
+                  htmlFor="cached-checkbox"
+                  className={cn("text-sm cursor-pointer mr-4", bothUnchecked && "text-destructive")}
+                >
+                  Show cached
+                </label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="uncached-checkbox"
+                  checked={!hideUncached}
+                  onCheckedChange={handleShowUncachedToggle}
+                  className={cn(bothUnchecked && "border-destructive")}
+                />
+                <label
+                  htmlFor="uncached-checkbox"
+                  className={cn("text-sm cursor-pointer mr-4", bothUnchecked && "text-destructive")}
+                >
+                  Show uncached
+                </label>
+              </div>
+            </div>
+          </div>
+
           {selectedHosts && (
             <div className="flex-1 mb-4 md:mb-0">
               <label className="text-sm font-medium mb-2 block">Hosts</label>
@@ -122,13 +236,18 @@ export function Filters({
                     >
                       <span
                         className={
-                          !hostRow.is_active && "text-muted-foreground"
+                          !hostRow.is_active
+                            ? "text-muted-foreground"
+                            : undefined
                         }
                       >
                         {hostRow.host}
                       </span>
                       <X
-                        className={cn("h-3 w-3", !isSelected && "invisible")}
+                        className={cn(
+                          "h-3 w-3",
+                          !isSelected ? "invisible" : undefined,
+                        )}
                       />
                     </Button>
                   );
@@ -136,6 +255,8 @@ export function Filters({
               </div>
             </div>
           )}
+        </div>
+        <div className="flex flex-col md:flex-row md:gap-8">
           {selectedPathnames && (
             <div className="flex-1 mb-4 md:mb-0">
               <label className="text-sm font-medium mb-2 block">
@@ -155,13 +276,18 @@ export function Filters({
                     >
                       <span
                         className={
-                          !pathnameRow.is_active && "text-muted-foreground"
+                          !pathnameRow.is_active
+                            ? "text-muted-foreground"
+                            : undefined
                         }
                       >
                         {pathnameRow.pathname}
                       </span>
                       <X
-                        className={cn("h-3 w-3", !isSelected && "invisible")}
+                        className={cn(
+                          "h-3 w-3",
+                          !isSelected ? "invisible" : undefined,
+                        )}
                       />
                     </Button>
                   );
@@ -169,24 +295,6 @@ export function Filters({
               </div>
             </div>
           )}
-          <div className="w-full md:w-48">
-            <label className="text-sm font-medium mb-2 block">Timespan</label>
-            <Select
-              value={selectedTimespan}
-              onValueChange={handleTimespanChange}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select timespan" />
-              </SelectTrigger>
-              <SelectContent>
-                {TIMESPAN_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
         </div>
       </CardContent>
     </Card>
