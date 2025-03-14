@@ -10,7 +10,12 @@ services:
       - DB_PATH=/app/data/lighthouse.db
       - LOG_LEVEL=info
       - S3_BUCKET_NAME=your-s3-bucket
-      - USE_PUPPETEER=false
+      - USE_PUPPETEER=true
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - lighthouse-network
     volumes:
@@ -28,6 +33,11 @@ services:
     environment:
       - LOG_LEVEL=info
       - S3_BUCKET_NAME=your-s3-bucket
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     ports:
       - "3000:3000"
     networks:

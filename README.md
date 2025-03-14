@@ -7,6 +7,7 @@ Monitor Lighthouse performance metrics over time. Uses Node.js, TypeScript, Pupp
 - display graphs of data over time
 - separate cached vs. non-cached behavior
 - save HTML reports to S3
+- set cookies to hide OneTrust cookie consent banner
 - measure
   - Overall Lighthouse performance score
   - First Contentful Paint (FCP)
@@ -54,7 +55,7 @@ Set environment variables in `docker-compose.yml` and/or `.env` files.
 ### Add S3 credentials
 
 ``` sh
-docker-compose up -d dashboard
+docker-compose up --build -d dashboard
 docker-compose exec -it dashboard bash
 vim /app/data/.env
 # add S3 credentials, exit vi
@@ -67,7 +68,7 @@ docker-compose down
 ``` sh
 docker-compose up -d dashboard
 docker-compose exec -it dashboard bash
-npx tsx scripts/250305-add-inp-browser-env-to-metrics.ts
+npx tsx migrations/250305-add-inp-browser-env-to-metrics.ts
 exit
 docker-compose down
 ```

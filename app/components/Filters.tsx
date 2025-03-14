@@ -199,7 +199,10 @@ export function Filters({
                 />
                 <label
                   htmlFor="cached-checkbox"
-                  className={cn("text-sm cursor-pointer mr-4", bothUnchecked && "text-destructive")}
+                  className={cn(
+                    "text-sm cursor-pointer mr-4",
+                    bothUnchecked && "text-destructive",
+                  )}
                 >
                   Show cached
                 </label>
@@ -213,7 +216,10 @@ export function Filters({
                 />
                 <label
                   htmlFor="uncached-checkbox"
-                  className={cn("text-sm cursor-pointer mr-4", bothUnchecked && "text-destructive")}
+                  className={cn(
+                    "text-sm cursor-pointer mr-4",
+                    bothUnchecked && "text-destructive",
+                  )}
                 >
                   Show uncached
                 </label>

@@ -15,7 +15,6 @@ SERVER=$1
 
 rsync -avz \
   --delete \
-  --exclude='.git' \
   --exclude='.env' \
   --exclude='.next' \
   --exclude='.DS_Store' \

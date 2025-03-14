@@ -5,10 +5,15 @@ import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import * as cheerio from "cheerio";
 import * as chromeLauncher from "chrome-launcher";
 import lighthouse, * as LH from "lighthouse";
-import puppeteer, { LaunchOptions } from "puppeteer";
-import { URL } from "url";
+import puppeteer, { Browser, CookieData, LaunchOptions, Page } from "puppeteer";
+import { execSync } from "child_process";
 
-import { createMetrics, getAllHosts, getAllPathnames } from "./lib/db";
+import {
+  createMetrics,
+  getAllHosts,
+  getPathnamesToTest,
+  updatePathnameTestedAt,
+} from "./lib/db";
 import * as log from "./lib/log";
 import { TBrowserEnv } from "./lib/types";
 import { fix, range, sleep, timeout } from "./lib/utils";
@@ -17,7 +22,8 @@ import { fix, range, sleep, timeout } from "./lib/utils";
  * Constants
  */
 const DELAY_BETWEEN_TESTS_MS = 1000;
-const LIGHTHOUSE_STUCK_TIMEOUT_MS = 120 * 1000;
+const LIGHTHOUSE_MAX_WAIT_FOR_LOAD = 120 * 1000;
+const LIGHTHOUSE_STUCK_TIMEOUT_MS = LIGHTHOUSE_MAX_WAIT_FOR_LOAD + 120 * 1000;
 const LIGHTHOUSE_STUCK_TIMEOUT_VALUE = "LIGHTHOUSE_STUCK_TIMEOUT_VALUE";
 const CHROME_LAUNCHER_OPTIONS: chromeLauncher.Options = {
   chromeFlags: [
@@ -32,6 +38,10 @@ const CHROME_LAUNCHER_OPTIONS: chromeLauncher.Options = {
 };
 const PUPPETEER_OPTIONS: LaunchOptions = {
   args: ["--no-sandbox", "--disable-setuid-sandbox"],
+  // below options from https://github.com/GoogleChrome/lighthouse/blob/main/docs/puppeteer.md
+  headless: true, // this is "new headless"
+  defaultViewport: null,
+  ignoreDefaultArgs: ["--enable-automation"],
 };
 const LIGHTHOUSE_CONFIG: LH.Config = {
   extends: "lighthouse:default",
@@ -61,12 +71,10 @@ async function main() {
   log.debug("[main] start");
 
   try {
-    const pathnameRows = await getAllPathnames();
+    const pathnameRows = await getPathnamesToTest();
     const hostRows = await getAllHosts();
     for (const pathnameRow of pathnameRows) {
-      if (!pathnameRow.is_active) {
-        continue;
-      }
+      await updatePathnameTestedAt(pathnameRow.id);
       for (const hostRow of hostRows) {
         if (!hostRow.is_active) {
           continue;
@@ -102,13 +110,13 @@ async function runTestsForSingleUrl(host: string, pathname: string) {
 
   for (const runNumber of range(1, 3)) {
     try {
-      await runLighthouse(
+      await runLighthouse({
+        browserEnv: "chrome-launcher",
+        browserWsPort: chrome.port,
         host,
         pathname,
-        chrome.port,
         runNumber,
-        "chrome-launcher",
-      );
+      });
       await sleep(DELAY_BETWEEN_TESTS_MS);
     } catch (error) {
       log.error(` ❌ Error measuring ${url}:`, error);
@@ -135,13 +143,26 @@ async function runTestsForSingleUrlUsingPuppeteer(
 
   const browser = await puppeteer.launch(PUPPETEER_OPTIONS);
   await sleep(DELAY_BETWEEN_TESTS_MS);
-  const port = parseInt(new URL(browser.wsEndpoint()).port, 10);
+  const puppeteerPage = await browser.newPage();
 
+  // Set cookies to close the OneTrust cookie consent banner
+  const cookies = await setCookiesToHideOneTrustCookieConsentBanner(
+    browser,
+    host,
+  );
+
+  // Run 2 tests per URL
   for (const runNumber of range(1, 3)) {
     try {
-      // TODO: `.race` and `timeout` stuff not tested
       const result = await Promise.race([
-        runLighthouse(host, pathname, port, runNumber, "puppeteer"),
+        runLighthouse({
+          browserEnv: "puppeteer",
+          cookies,
+          host,
+          pathname,
+          puppeteerPage,
+          runNumber,
+        }),
         timeout(LIGHTHOUSE_STUCK_TIMEOUT_MS, LIGHTHOUSE_STUCK_TIMEOUT_VALUE),
       ]);
       if (result === LIGHTHOUSE_STUCK_TIMEOUT_VALUE) {
@@ -158,15 +179,62 @@ async function runTestsForSingleUrlUsingPuppeteer(
 }
 
 /**
+ *
+ */
+async function setCookiesToHideOneTrustCookieConsentBanner(
+  browser: Browser,
+  host: string,
+) {
+  const COOKIES: CookieData[] = [
+    {
+      name: "OptanonAlertBoxClosed",
+      value: new Date().toISOString(),
+      domain: host,
+      path: "/",
+      sameSite: "Lax",
+    },
+    {
+      name: "OptanonConsent",
+      value: "isGpcEnabled=0&datestamp=" + new Date().toISOString(),
+      domain: host,
+      path: "/",
+      sameSite: "Lax",
+    },
+  ];
+  const oneYearFromNow = Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60;
+  const cookies = COOKIES.map((cookie) => ({
+    ...cookie,
+    expires: oneYearFromNow,
+  }));
+  log.info(`Setting cookies: ${JSON.stringify(cookies)}`);
+  for (const cookie of cookies) {
+    await browser.setCookie(cookie);
+  }
+  return cookies;
+}
+
+/**
  * runLighthouse
  */
-async function runLighthouse(
-  host: string,
-  pathname: string,
-  browserWsPort: number,
-  runNumber: number,
-  browserEnv: TBrowserEnv,
-) {
+type TRunLighthouseParam = {
+  browserEnv: TBrowserEnv;
+  browserWsPort?: number;
+  cookies?: CookieData[];
+  host: string;
+  pathname: string;
+  puppeteerPage?: Page;
+  runNumber: number;
+};
+
+async function runLighthouse({
+  browserEnv,
+  browserWsPort,
+  cookies,
+  host,
+  pathname,
+  puppeteerPage,
+  runNumber,
+}: TRunLighthouseParam) {
   log.info(`Run ${runNumber}: running lighthouse...`);
 
   const url = `https://${host}${pathname}`;
@@ -190,6 +258,7 @@ async function runLighthouse(
     },
     // Lighthouse config
     lighthouseConfig,
+    puppeteerPage,
   );
 
   if (!result) {
@@ -239,6 +308,7 @@ async function runLighthouse(
       result.report[1],
       lighthouseConfig,
       runNumber,
+      cookies,
     );
     await uploadHtmlReportToS3(s3Key, appendedReport);
   } catch (error) {
@@ -302,17 +372,41 @@ function addConfigToEndOfReport(
   htmlReport: string,
   lighthouseConfig: LH.Config,
   runNumber: number,
+  cookies: CookieData[],
 ) {
   const $ = cheerio.load(htmlReport);
+  const codeVersion = getCodeVersionInfo();
 
-  const launcherOpts =
-    process.env.USE_PUPPETEER === "true"
-      ? PUPPETEER_OPTIONS
-      : CHROME_LAUNCHER_OPTIONS;
+  const isPuppeteer = process.env.USE_PUPPETEER === "true";
+  const launcherOpts = isPuppeteer
+    ? PUPPETEER_OPTIONS
+    : CHROME_LAUNCHER_OPTIONS;
 
   $("body").append(`<pre>Run number: ${runNumber}</pre>`);
-  $("body").append(`<pre>${JSON.stringify(launcherOpts, null, 2)}</pre>`);
-  $("body").append(`<pre>${JSON.stringify(lighthouseConfig, null, 2)}</pre>`);
+  $("body").append(`<pre>USE_PUPPETEER: ${process.env.USE_PUPPETEER}</pre>`);
+  $("body").append(`<pre>COOKIES: ${JSON.stringify(cookies, null, 2)}</pre>`);
+  $("body").append(
+    `<pre>${isPuppeteer ? "Puppeteer options:" : "Chrome launcher options:"} ${JSON.stringify(launcherOpts, null, 2)}</pre>`,
+  );
+  $("body").append(
+    `<pre>Lighthouse config: ${JSON.stringify(lighthouseConfig, null, 2)}</pre>`,
+  );
+  $("body").append(`<pre>Code version: ${codeVersion}</pre>`);
 
   return $.html();
+}
+
+/**
+ * getCodeVersionInfo
+ */
+function getCodeVersionInfo() {
+  let gitCommitInfo: string | null = null;
+  try {
+    gitCommitInfo = execSync("git show -s --format='%h %ci' HEAD", {
+      encoding: "utf8",
+    }).trim();
+  } catch (error) {
+    log.warn("Could not get git commit information:", error);
+  }
+  return gitCommitInfo;
 }

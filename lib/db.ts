@@ -41,6 +41,7 @@ export async function initializeDatabase() {
        id INTEGER PRIMARY KEY AUTOINCREMENT,
        pathname TEXT UNIQUE NOT NULL,
        is_active BOOLEAN DEFAULT TRUE,
+       tested_at DATETIME,
        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
      )
    `);
@@ -139,6 +140,22 @@ export async function updatePathnameIsActive(id: number, isActive: boolean) {
 }
 
 /**
+ * updatePathnameTestedAt
+ */
+export async function updatePathnameTestedAt(
+  id: number,
+  testedAt: string | null = null,
+) {
+  const db = await initializeDatabase();
+  const timestamp = testedAt ?? new Date().toISOString();
+  await db.run(
+    `UPDATE pathnames SET tested_at = ? WHERE id = ?`,
+    timestamp,
+    id,
+  );
+}
+
+/**
  * getAllPathnames
  */
 export async function getAllPathnames(): Promise<TPathnameRow[]> {
@@ -146,6 +163,18 @@ export async function getAllPathnames(): Promise<TPathnameRow[]> {
   const db = await initializeDatabase();
   const rows = await db.all(
     `SELECT id, is_active, pathname FROM pathnames ORDER BY pathname`,
+  );
+  return rows;
+}
+
+/**
+ * getPathnamesToTest
+ */
+export async function getPathnamesToTest(): Promise<TPathnameRow[]> {
+  log.debug("[getAllPathnames] start");
+  const db = await initializeDatabase();
+  const rows = await db.all(
+    `SELECT id, pathname, is_active FROM pathnames where is_active = 1 ORDER BY tested_at, pathname`,
   );
   return rows;
 }
