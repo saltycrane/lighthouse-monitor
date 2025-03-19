@@ -15,10 +15,7 @@ import {
 /**
  * initializeDatabase
  */
-export async function initializeDatabase() {
-  log.debug("[initializeDatabase] start");
-  const start = performance.now();
-
+async function _initializeDatabase() {
   const dbPath = getDatabasePath();
   const db = await open({
     filename: dbPath,
@@ -73,11 +70,13 @@ export async function initializeDatabase() {
     CREATE INDEX IF NOT EXISTS idx_metrics_filters_timestamp ON metrics(host, pathname, is_cached, timestamp);
   `);
 
-  const end = performance.now();
-  log.info(`[initializeDatabase] done in ${(end - start).toFixed(0)} ms`);
-
   return db;
 }
+
+export const initializeDatabase = withPerformanceLogging(
+  _initializeDatabase,
+  "initializeDatabase",
+);
 
 /**
  * createHost
@@ -214,14 +213,11 @@ export async function createMetrics(metrics: TLighthouseMetrics) {
 /**
  * getLatestMetrics
  */
-export async function getLatestMetrics(
+async function _getLatestMetrics(
   filters: TFilterParams = {},
 ): Promise<TMetricsRow[]> {
-  const start = performance.now();
-
   const db = await initializeDatabase();
   const [whereClause, params] = _getWhereClause(filters);
-
   const metrics = await db.all(
     `
     SELECT
@@ -245,22 +241,21 @@ export async function getLatestMetrics(
   `,
     params,
   );
-
-  const end = performance.now();
-  log.info(`[getLatestMetrics] done in ${(end - start).toFixed(0)} ms`);
-
   return metrics;
 }
+
+export const getLatestMetrics = withPerformanceLogging(
+  _getLatestMetrics,
+  "getLatestMetrics",
+);
 
 /**
  * getMovingAverages
  */
-export async function getMovingAverages(
+async function _getMovingAverages(
   filters: TFilterParams = {},
   windowHours = 4,
 ): Promise<TMetricsRow[]> {
-  const start = performance.now();
-
   const db = await initializeDatabase();
   const [whereClause, params] = _getWhereClause(filters);
 
@@ -298,20 +293,20 @@ export async function getMovingAverages(
     params,
   );
 
-  const end = performance.now();
-  log.info(`[getMovingAverages] done in ${(end - start).toFixed(0)} ms`);
-
   return averages;
 }
+
+export const getMovingAverages = withPerformanceLogging(
+  _getMovingAverages,
+  "getMovingAverages",
+);
 
 /**
  * getAggregatedStats
  */
-export async function getAggregatedStats(
+async function _getAggregatedStats(
   filters: TFilterParams = {},
 ): Promise<TAggregatedStatsRow> {
-  const start = performance.now();
-
   const db = await initializeDatabase();
   const [whereClause, params] = _getWhereClause(filters);
 
@@ -341,11 +336,13 @@ export async function getAggregatedStats(
     params,
   );
 
-  const end = performance.now();
-  log.info(`[getAggregatedStats] done in ${(end - start).toFixed(0)} ms`);
-
   return stats;
 }
+
+export const getAggregatedStats = withPerformanceLogging(
+  _getAggregatedStats,
+  "getAggregatedStats",
+);
 
 /**
  * _getWhereClause
@@ -373,4 +370,20 @@ function _getWhereClause({
   }
 
   return [whereClause, params];
+}
+
+/**
+ * withPerformanceLogging
+ */
+function withPerformanceLogging<TArgs extends any[], TResult>(
+  fn: (...args: TArgs) => Promise<TResult>,
+  name: string,
+) {
+  return async (...args: TArgs) => {
+    const start = performance.now();
+    const result = await fn(...args);
+    const end = performance.now();
+    log.info(`[${name}] done in ${(end - start).toFixed(0)} ms`);
+    return result;
+  };
 }
