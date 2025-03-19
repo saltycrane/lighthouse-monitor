@@ -86,8 +86,11 @@ export async function getAndTransformAllData({ params, searchParams }: TProps) {
           timespanHours,
         };
         const metrics = await getLatestMetrics(filterParams);
-        const averages = await getMovingAverages(filterParams);
         const stats = await getAggregatedStats(filterParams);
+        let averages: TMetricsRow[] = [];
+        if (timespanHours <= 24) {
+          averages = await getMovingAverages(filterParams);
+        }
 
         plotData[host][pathname][cacheStatus] = {
           averages,
