@@ -68,8 +68,13 @@ export async function Navigation() {
           </NavigationMenuContent>
         </NavigationMenuItem>
         <NavigationMenuItem>
-          <Link href="/configuration" className="flex items-center ml-3">
-            <Cog className="h-5 w-5 mr-2" />
+          <Link href="/qa" className="flex items-center ml-3">
+            <span>QA</span>
+          </Link>
+        </NavigationMenuItem>
+        <NavigationMenuItem>
+          <Link href="/configuration" className="flex items-center ml-6">
+            <Cog className="h-5 w-5 mr-1" />
             <span>Configuration</span>
           </Link>
         </NavigationMenuItem>

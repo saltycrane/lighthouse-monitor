@@ -32,17 +32,18 @@ import { localDateTime } from "@/lib/dates";
  * runs on the client after hydration, so there's no mismatch.
  */
 type TProps = {
+  format?: string;
   utcDateTimeStr: string;
 };
 
-export function LocalDateTime({ utcDateTimeStr }: TProps) {
+export function LocalDateTime({ format, utcDateTimeStr }: TProps) {
   // Initially use the raw string to avoid hydration mismatch
   const [formattedDate, setFormattedDate] = useState<string>(utcDateTimeStr);
 
   useEffect(() => {
     // Only run the conversion on the client side after hydration is complete
-    setFormattedDate(localDateTime(utcDateTimeStr));
-  }, [utcDateTimeStr]);
+    setFormattedDate(localDateTime(utcDateTimeStr, format));
+  }, [format, utcDateTimeStr]);
 
   return <span>{formattedDate}</span>;
 }

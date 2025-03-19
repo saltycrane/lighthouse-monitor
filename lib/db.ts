@@ -373,6 +373,50 @@ function _getWhereClause({
 }
 
 /**
+ * getQaMetrics
+ */
+type TQaFilterParams = {
+  host: string;
+  pathname: string;
+};
+
+async function _getQaMetrics({
+  host,
+  pathname,
+}: TQaFilterParams): Promise<TMetricsRow[]> {
+  const db = await initializeDatabase();
+  const metrics = await db.all(
+    `
+    SELECT
+      host,
+      pathname,
+      is_cached,
+      performance_score,
+      first_contentful_paint,
+      largest_contentful_paint,
+      total_blocking_time,
+      cumulative_layout_shift,
+      speed_index,
+      interaction_to_next_paint,
+      browser_env,
+      html_report_s3_key,
+      timestamp
+    FROM metrics
+    WHERE host = ? AND pathname = ? AND is_cached = 1
+    ORDER BY timestamp DESC
+    LIMIT 20
+  `,
+    [host, pathname],
+  );
+  return metrics;
+}
+
+export const getQaMetrics = withPerformanceLogging(
+  _getQaMetrics,
+  "getQaMetrics",
+);
+
+/**
  * withPerformanceLogging
  */
 function withPerformanceLogging<TArgs extends any[], TResult>(
@@ -383,7 +427,12 @@ function withPerformanceLogging<TArgs extends any[], TResult>(
     const start = performance.now();
     const result = await fn(...args);
     const end = performance.now();
-    log.info(`[${name}] done in ${(end - start).toFixed(0)} ms`);
+    const delta = end - start;
+    if (delta > 1000) {
+      log.warn(`[${name}] done in ${(end - start).toFixed(0)} ms`);
+    } else {
+      log.info(`[${name}] done in ${(end - start).toFixed(0)} ms`);
+    }
     return result;
   };
 }

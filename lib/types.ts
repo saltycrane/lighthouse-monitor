@@ -101,6 +101,13 @@ export type TPlotData = {
 
 export type TRouteParams = Promise<{ host: string } | { pathname: string }>;
 
+export type TQaSearchParams = Promise<{
+  host1?: string;
+  host2?: string;
+  pathname1?: string;
+  pathname2?: string;
+}>;
+
 export type TSearchParams = Promise<{
   combineCached?: string;
   hideCached?: string;

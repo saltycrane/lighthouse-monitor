@@ -16,11 +16,11 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <header className="border-b">
-          <div className="container mx-auto py-4">
+          <div className="py-4">
             <Navigation />
           </div>
         </header>
-        <main className="container mx-auto p-4 pb-8">{children}</main>
+        <main className="p-4 pb-8">{children}</main>
       </body>
     </html>
   );
